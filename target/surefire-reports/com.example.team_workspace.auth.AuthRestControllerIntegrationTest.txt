@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.example.team_workspace.auth.AuthRestControllerIntegrationTest
+-------------------------------------------------------------------------------
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 35.87 s -- in com.example.team_workspace.auth.AuthRestControllerIntegrationTest
