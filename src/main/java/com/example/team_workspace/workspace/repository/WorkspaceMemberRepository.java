@@ -1,5 +1,6 @@
 package com.example.team_workspace.workspace.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import com.example.team_workspace.workspace.domain.WorkspaceMember;
@@ -9,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, Long> {
+
+    List<WorkspaceMember> findAllByWorkspaceIdOrderByIdAsc(Long workspaceId);
 
     Optional<WorkspaceMember> findByWorkspaceIdAndUserId(Long workspaceId, Long userId);
 
