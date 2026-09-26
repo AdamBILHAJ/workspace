@@ -1,61 +1,16 @@
 "use client";
 
-import {
-  CheckCircle2,
-  Clock3,
-  FolderKanban,
-  Layers3,
-  LogOut,
-  UsersRound,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
+import { CheckCircle2, Clock3, FolderKanban, UsersRound } from "lucide-react";
 
+import { WorkspaceShellHeader } from "@/components/workspace/WorkspaceShellHeader";
 import { useAuth } from "@/context/AuthContext";
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const { user, logout } = useAuth();
-
-  function handleLogout() {
-    logout();
-    router.replace("/signin");
-  }
+  const { user } = useAuth();
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-slate-950 text-white dark:bg-white dark:text-slate-950">
-              <Layers3 className="size-5" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="font-semibold tracking-tight">Team Workspace</p>
-              <p className="text-xs text-slate-500">Workspace overview</p>
-            </div>
-          </div>
-
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="hidden min-w-0 text-right sm:block">
-                <p className="break-words text-sm font-medium">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="break-all text-xs text-slate-500">{user?.email}</p>
-            </div>
-            <div className="flex size-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-700">
-              {user?.firstName.charAt(0)}{user?.lastName.charAt(0)}
-            </div>
-            <button
-              className="flex size-10 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-4 focus:ring-red-500/10 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-red-950/40"
-              type="button"
-              onClick={handleLogout}
-              aria-label="Sign out"
-            >
-              <LogOut className="size-4" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </header>
+      <WorkspaceShellHeader />
 
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         <div className="mb-8">
