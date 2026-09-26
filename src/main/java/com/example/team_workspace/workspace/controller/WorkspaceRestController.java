@@ -73,4 +73,12 @@ public class WorkspaceRestController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(workspaceService.addMember(workspaceId, request, currentUser));
     }
+
+    @GetMapping("/workspaces/{workspaceId}/members")
+    public ResponseEntity<List<MemberResponse>> listMembers(
+            @PathVariable Long workspaceId,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        return ResponseEntity.ok(workspaceService.listMembers(workspaceId, currentUser));
+    }
 }
