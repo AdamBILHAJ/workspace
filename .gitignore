@@ -23,6 +23,17 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Local environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Template with placeholders only, safe to commit.
+# Must stay last: .gitignore is last-match-wins, so this has to override
+# both `.env.*` above and the `*.env` pattern.
+!.env.example
+
 # Node (the frontend keeps its own, more complete .gitignore)
 node_modules/
 *.tsbuildinfo
