@@ -1,0 +1,28 @@
+# Maven build output
+target/
+
+# Compiled Java classes and packaged archives
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+nbproject/private/
+.vscode/*
+!.vscode/settings.json
+
+# Logs
+*.log
+logs/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Node (the frontend keeps its own, more complete .gitignore)
+node_modules/
+*.tsbuildinfo
