@@ -4,6 +4,7 @@ import { Layers3, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher";
 import { useAuth } from "@/context/AuthContext";
 
@@ -46,6 +47,8 @@ export function WorkspaceShellHeader({
           <div className="w-full max-w-56 sm:w-64">
             <WorkspaceSwitcher activeSlug={activeSlug} />
           </div>
+
+          <NotificationBell />
 
           <div className="hidden min-w-0 text-right lg:block">
             <p className="break-words text-sm font-medium">

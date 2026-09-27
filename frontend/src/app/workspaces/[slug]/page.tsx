@@ -4,6 +4,7 @@ import { ArrowLeft, FolderKanban, LoaderCircle, UsersRound } from "lucide-react"
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
+import { ProjectList } from "@/components/projects/ProjectList";
 import { WorkspaceShellHeader } from "@/components/workspace/WorkspaceShellHeader";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import type { WorkspaceRole } from "@/lib/workspaces";
@@ -127,14 +128,13 @@ export default function WorkspacePage() {
               ))}
             </section>
 
-            <section className="mt-6 min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="font-semibold">Getting started</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Projects, tasks, and members for {workspace.name} will appear
-                here. Use the switcher in the header to jump between the
-                workspaces you belong to.
-              </p>
-            </section>
+            <ProjectList
+              canManage={
+                workspace.role === "OWNER" || workspace.role === "ADMIN"
+              }
+              workspaceId={workspace.id}
+              workspaceSlug={workspace.slug}
+            />
           </>
         )}
       </div>

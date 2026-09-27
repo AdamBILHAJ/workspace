@@ -22,6 +22,28 @@ export interface CreateWorkspaceInput {
   organizationId?: number;
 }
 
+export interface WorkspaceMember {
+  id: number;
+  role: WorkspaceRole;
+  user: {
+    id: number;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export async function listWorkspaceMembers(
+  workspaceId: number,
+  signal?: AbortSignal,
+): Promise<WorkspaceMember[]> {
+  const response = await api.get<WorkspaceMember[]>(
+    `/api/v1/workspaces/${workspaceId}/members`,
+    { signal },
+  );
+  return response.data;
+}
+
 export async function listWorkspaces(signal?: AbortSignal): Promise<Workspace[]> {
   const response = await api.get<Workspace[]>("/api/v1/workspaces", { signal });
   return response.data;

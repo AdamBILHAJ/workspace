@@ -37,19 +37,31 @@ public class WorkspaceService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final UserRepository userRepository;
     private final SlugService slugService;
+    private final MembershipGuard membershipGuard;
 
     public WorkspaceService(
             OrganizationRepository organizationRepository,
             WorkspaceRepository workspaceRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
             UserRepository userRepository,
-            SlugService slugService
+            SlugService slugService,
+            MembershipGuard membershipGuard
     ) {
         this.organizationRepository = organizationRepository;
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.userRepository = userRepository;
         this.slugService = slugService;
+        this.membershipGuard = membershipGuard;
+    }
+
+    @Transactional(readOnly = true)
+    public List<MemberResponse> listMembers(Long workspaceId, User actor) {
+        membershipGuard.requireMembership(workspaceId, actor);
+        return workspaceMemberRepository.findAllByWorkspaceIdOrderByIdAsc(workspaceId)
+                .stream()
+                .map(MemberResponse::from)
+                .toList();
     }
 
     @Transactional
