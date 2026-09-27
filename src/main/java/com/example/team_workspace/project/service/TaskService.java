@@ -3,6 +3,8 @@ package com.example.team_workspace.project.service;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.example.team_workspace.activity.event.TaskCreatedEvent;
+import com.example.team_workspace.activity.event.TaskMovedEvent;
 import com.example.team_workspace.project.domain.KanbanColumn;
 import com.example.team_workspace.project.domain.Task;
 import com.example.team_workspace.project.dto.CreateTaskRequest;
@@ -18,6 +20,7 @@ import com.example.team_workspace.project.repository.TaskRepository;
 import com.example.team_workspace.user.domain.User;
 import com.example.team_workspace.user.repository.UserRepository;
 import com.example.team_workspace.workspace.service.MembershipGuard;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,17 +31,20 @@ public class TaskService {
     private final KanbanColumnRepository kanbanColumnRepository;
     private final UserRepository userRepository;
     private final MembershipGuard membershipGuard;
+    private final ApplicationEventPublisher eventPublisher;
 
     public TaskService(
             TaskRepository taskRepository,
             KanbanColumnRepository kanbanColumnRepository,
             UserRepository userRepository,
-            MembershipGuard membershipGuard
+            MembershipGuard membershipGuard,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.taskRepository = taskRepository;
         this.kanbanColumnRepository = kanbanColumnRepository;
         this.userRepository = userRepository;
         this.membershipGuard = membershipGuard;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -61,6 +67,8 @@ public class TaskService {
                 assignee,
                 reporter
         ));
+
+        eventPublisher.publishEvent(TaskCreatedEvent.from(task, reporter));
 
         return TaskResponse.from(task);
     }
@@ -98,6 +106,12 @@ public class TaskService {
             List<Task> remaining = taskRepository
                     .findAllByColumnIdInOrderByOrderIndexAscIdAsc(List.of(sourceColumn.getId()));
             taskRepository.saveAll(applyContiguousOrder(remaining));
+
+            // Only a change of column is a move worth auditing; reordering
+            // inside the same column stays out of the activity trail.
+            eventPublisher.publishEvent(
+                    TaskMovedEvent.from(task, actor, sourceColumn.getName())
+            );
         }
 
         return TaskResponse.from(task);

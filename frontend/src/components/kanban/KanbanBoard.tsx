@@ -1,9 +1,10 @@
 "use client";
 
 import { LoaderCircle, Plus } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { KanbanColumn } from "@/components/kanban/KanbanColumn";
+import { TaskDetailModal } from "@/components/kanban/TaskDetailModal";
 import type { Board, KanbanColumn as KanbanColumnModel, Task } from "@/lib/projects";
 
 interface KanbanBoardProps {
@@ -14,6 +15,8 @@ interface KanbanBoardProps {
   onAddColumn: (name: string) => void;
   onAddTask: (columnId: number) => void;
   onMoveTask: (taskId: number, columnId: number, orderIndex: number) => void;
+  openTaskId?: number | null;
+  onOpenTaskHandled?: () => void;
 }
 
 export function KanbanBoard({
@@ -24,10 +27,22 @@ export function KanbanBoard({
   onAddColumn,
   onAddTask,
   onMoveTask,
+  openTaskId = null,
+  onOpenTaskHandled,
 }: KanbanBoardProps) {
   const [draggingTask, setDraggingTask] = useState<Task | null>(null);
   const [hoverColumnId, setHoverColumnId] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [detailTaskId, setDetailTaskId] = useState<number | null>(openTaskId);
+  const [lastOpenTaskId, setLastOpenTaskId] = useState(openTaskId);
+
+  // Adjust the open task during render when the deep link changes, which is
+  // React's recommended alternative to mirroring a prop into state in an
+  // effect.
+  if (openTaskId !== lastOpenTaskId) {
+    setLastOpenTaskId(openTaskId);
+    setDetailTaskId(openTaskId);
+  }
 
   const handleDragStart = useCallback((task: Task) => {
     setDraggingTask(task);
@@ -89,6 +104,25 @@ export function KanbanBoard({
     [board.columns, onMoveTask],
   );
 
+  const handleOpenTaskDetails = useCallback((task: Task) => {
+    setDetailTaskId(task.id);
+  }, []);
+
+  const allTasks = useMemo(
+    () => board.columns.flatMap((column) => column.tasks),
+    [board.columns],
+  );
+
+  const detailTask =
+    detailTaskId == null
+      ? null
+      : (allTasks.find((task) => task.id === detailTaskId) ?? null);
+
+  const handleCloseDetails = useCallback(() => {
+    setDetailTaskId(null);
+    onOpenTaskHandled?.();
+  }, [onOpenTaskHandled]);
+
   return (
     <div className="mt-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -96,7 +130,8 @@ export function KanbanBoard({
           <h2 className="text-lg font-semibold tracking-tight">Board</h2>
           <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
             Drag a card to reorder it, or use the column selector on each task
-            for keyboard friendly moves.
+            for keyboard friendly moves. Open a card to comment and track its
+            activity.
           </p>
         </div>
         {canManage ? (
@@ -144,6 +179,7 @@ export function KanbanBoard({
             onDragStart={handleDragStart}
             onHoverPosition={handleHoverPosition}
             onMoveTask={handleSelectMove}
+            onOpenTaskDetails={handleOpenTaskDetails}
             onTaskDrop={handleDrop}
           />
         ))}
@@ -154,6 +190,10 @@ export function KanbanBoard({
           </p>
         ) : null}
       </div>
+
+      {detailTask ? (
+        <TaskDetailModal onClose={handleCloseDetails} task={detailTask} />
+      ) : null}
     </div>
   );
 }

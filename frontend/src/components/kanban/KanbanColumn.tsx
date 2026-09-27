@@ -16,6 +16,7 @@ interface KanbanColumnProps {
   onDragStart: (task: Task) => void;
   onHoverPosition: (columnId: number, index: number) => void;
   onMoveTask: (taskId: number, columnId: number) => void;
+  onOpenTaskDetails: (task: Task) => void;
   onTaskDrop: (columnId: number, index: number) => void;
 }
 
@@ -30,6 +31,7 @@ export function KanbanColumn({
   onDragStart,
   onHoverPosition,
   onMoveTask,
+  onOpenTaskDetails,
   onTaskDrop,
 }: KanbanColumnProps) {
   return (
@@ -100,6 +102,7 @@ export function KanbanColumn({
                 onDragEnd={onDragEnd}
                 onDragStart={() => onDragStart(task)}
                 onMove={(columnId) => onMoveTask(task.id, columnId)}
+                onOpenDetails={onOpenTaskDetails}
                 task={task}
               />
             </div>

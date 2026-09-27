@@ -2,7 +2,7 @@
 
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CreateTaskModal } from "@/components/kanban/CreateTaskModal";
@@ -79,6 +79,7 @@ function applyCreatedTask(board: Board, task: Task): Board {
 
 export default function ProjectBoardPage() {
   const params = useParams<{ slug: string; key: string }>();
+  const router = useRouter();
   const slug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug;
   const key = Array.isArray(params?.key) ? params.key[0] : params?.key;
 
@@ -99,6 +100,14 @@ export default function ProjectBoardPage() {
   const [pendingTaskModal, setPendingTaskModal] =
     useState<PendingTaskModal | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+
+  // Read the ?task= deep link directly so no effect or state mirroring is
+  // needed to open the right task.
+  const searchParams = useSearchParams();
+  const requestedTaskId = searchParams?.get("task") ?? null;
+  const parsedTaskId = requestedTaskId ? Number(requestedTaskId) : Number.NaN;
+  const deepLinkTaskId =
+    Number.isInteger(parsedTaskId) && parsedTaskId > 0 ? parsedTaskId : null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -190,6 +199,12 @@ export default function ProjectBoardPage() {
     },
     [board],
   );
+
+  const handleClearDeepLink = useCallback(() => {
+    if (searchParams && Array.from(searchParams.keys()).length > 0) {
+      router.replace(`/workspaces/${slug}/projects/${key}`);
+    }
+  }, [key, router, searchParams, slug]);
 
   const handleCreateTask = useCallback(
     async (input: {
@@ -308,6 +323,8 @@ export default function ProjectBoardPage() {
             onMoveTask={(taskId, columnId, orderIndex) =>
               void handleMoveTask(taskId, columnId, orderIndex)
             }
+            onOpenTaskHandled={handleClearDeepLink}
+            openTaskId={deepLinkTaskId}
           />
         )}
       </div>
