@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { AuthProvider } from "@/context/AuthContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 import { WorkspaceProvider } from "@/context/WorkspaceContext";
 
 import "./globals.css";
@@ -32,7 +33,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col font-sans">
         <AuthProvider>
-          <WorkspaceProvider>{children}</WorkspaceProvider>
+          <NotificationProvider>
+            <WorkspaceProvider>{children}</WorkspaceProvider>
+          </NotificationProvider>
         </AuthProvider>
       </body>
     </html>

@@ -4,13 +4,8 @@ import { Bell, CheckCheck, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  getNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
-  type AppNotification,
-} from "@/lib/api";
-import { getApiErrorMessage } from "@/lib/auth";
+import { useNotifications } from "@/context/NotificationContext";
+import type { AppNotification } from "@/lib/api";
 
 function formatRelative(value: string): string {
   const parsed = new Date(value);
@@ -29,47 +24,20 @@ function formatRelative(value: string): string {
 }
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    isMutating,
+    isConnected,
+    error,
+    clearError,
+    retry,
+    markAsRead,
+    markAllAsRead,
+  } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isMutating, setIsMutating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadToken, setReloadToken] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let isActive = true;
-
-    async function load(): Promise<void> {
-      try {
-        const data = await getNotifications(controller.signal);
-
-        if (isActive) {
-          setNotifications(data.notifications);
-          setUnreadCount(data.unreadCount);
-        }
-      } catch (caughtError) {
-        if (isActive && !controller.signal.aborted) {
-          setError(
-            getApiErrorMessage(caughtError, "Unable to load notifications."),
-          );
-        }
-      } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [reloadToken]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -101,49 +69,9 @@ export function NotificationBell() {
     setIsOpen((current) => !current);
   }, []);
 
-  async function handleMarkAllRead() {
-    if (isMutating) {
-      return;
-    }
-
-    setIsMutating(true);
-    setError(null);
-
-    try {
-      await markAllNotificationsRead();
-      setNotifications((current) =>
-        current.map((notification) => ({ ...notification, isRead: true })),
-      );
-      setUnreadCount(0);
-    } catch (caughtError) {
-      setError(
-        getApiErrorMessage(caughtError, "Unable to mark notifications as read."),
-      );
-    } finally {
-      setIsMutating(false);
-    }
-  }
-
   async function handleOpenNotification(notification: AppNotification) {
     if (!notification.isRead) {
-      try {
-        await markNotificationRead(notification.id);
-        setNotifications((current) =>
-          current.map((candidate) =>
-            candidate.id === notification.id
-              ? { ...candidate, isRead: true }
-              : candidate,
-          ),
-        );
-        setUnreadCount((current) => Math.max(0, current - 1));
-      } catch {
-        setError(
-          getApiErrorMessage(
-            new Error("Unable to mark that notification as read."),
-            "Unable to mark that notification as read.",
-          ),
-        );
-      }
+      await markAsRead(notification.id);
     }
 
     setIsOpen(false);
@@ -159,11 +87,19 @@ export function NotificationBell() {
             ? `Notifications, ${unreadCount} unread`
             : "Notifications"
         }
+        title={
+          isConnected
+            ? "Live updates on"
+            : "Reconnecting; showing the last known notifications"
+        }
         className="relative flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:border-slate-300 hover:text-slate-900 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 dark:border-slate-700 dark:text-slate-300 dark:hover:text-white"
         onClick={handleOpen}
         type="button"
       >
         <Bell aria-hidden="true" className="size-4" />
+        <span className="sr-only" role="status">
+          {isConnected ? "Live updates on" : "Live updates reconnecting"}
+        </span>
         {unreadCount > 0 ? (
           <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-5 text-white">
             {unreadCount > 99 ? "99+" : unreadCount}
@@ -183,7 +119,7 @@ export function NotificationBell() {
               <button
                 className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
                 disabled={isMutating}
-                onClick={() => void handleMarkAllRead()}
+                onClick={() => void markAllAsRead()}
                 type="button"
               >
                 {isMutating ? (
@@ -207,9 +143,8 @@ export function NotificationBell() {
               <button
                 className="mt-1 text-xs font-semibold text-indigo-600 underline dark:text-indigo-300"
                 onClick={() => {
-                  setError(null);
-                  setIsLoading(true);
-                  setReloadToken((token) => token + 1);
+                  clearError();
+                  retry();
                 }}
                 type="button"
               >

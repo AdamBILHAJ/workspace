@@ -49,6 +49,45 @@ export interface NotificationsResponse {
   unreadCount: number;
 }
 
+/**
+ * Discriminator carried by every frame the server pushes to
+ * /user/queue/notifications. `payload` narrows per variant: a notification for
+ * NEW_NOTIFICATION and NOTIFICATION_READ, and the number of rows updated for
+ * ALL_READ. `unreadCount` is always the server's authoritative count, so the
+ * badge never has to be recomputed on the client.
+ */
+export type NotificationSocketEvent =
+  | {
+      type: "NEW_NOTIFICATION";
+      payload: AppNotification;
+      unreadCount: number;
+    }
+  | {
+      type: "NOTIFICATION_READ";
+      payload: AppNotification;
+      unreadCount: number;
+    }
+  | {
+      type: "ALL_READ";
+      payload: number;
+      unreadCount: number;
+    };
+
+export function isNotificationSocketEvent(
+  value: unknown,
+): value is NotificationSocketEvent {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const candidate = value as { type?: unknown };
+  return (
+    candidate.type === "NEW_NOTIFICATION" ||
+    candidate.type === "NOTIFICATION_READ" ||
+    candidate.type === "ALL_READ"
+  );
+}
+
 export async function getTaskComments(
   taskId: number,
   signal?: AbortSignal,
