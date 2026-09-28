@@ -3,13 +3,14 @@ package com.example.team_workspace.activity;
 import java.util.List;
 import java.util.Map;
 
+import com.example.team_workspace.support.DatabaseTruncator;
+import com.example.team_workspace.support.IntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,36 +25,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Deliberately not @Transactional: the activity and notification listeners run
- * on AFTER_COMMIT, so these tests need real commits. State is truncated between
- * tests instead of rolled back.
+ * on AFTER_COMMIT, so these tests need real commits. State is truncated on both
+ * sides of each test instead of rolled back, so nothing survives into the
+ * shared database. See {@link IntegrationTest} for the shared context.
  */
-@SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:engagement-test;DB_CLOSE_DELAY=-1",
-        "spring.datasource.driver-class-name=org.h2.Driver",
-        "spring.datasource.username=sa",
-        "spring.datasource.password=",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.jpa.show-sql=false",
-        "app.jwt.secret=integration-test-signing-key-with-more-than-32-bytes",
-        "app.jwt.expiration=1h"
-})
-@AutoConfigureMockMvc
+@IntegrationTest
 class TaskEngagementIntegrationTest {
 
     private static final String PASSWORD = "StrongPassword123!";
-
-    private static final List<String> TABLES = List.of(
-            "notifications",
-            "activity_logs",
-            "task_comments",
-            "tasks",
-            "kanban_columns",
-            "projects",
-            "workspace_members",
-            "workspaces",
-            "organizations",
-            "users"
-    );
 
     @Autowired
     private MockMvc mockMvc;
@@ -66,9 +45,12 @@ class TaskEngagementIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
-        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
-        TABLES.forEach(table -> jdbcTemplate.execute("TRUNCATE TABLE " + table));
-        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY TRUE");
+        DatabaseTruncator.truncate(jdbcTemplate);
+    }
+
+    @AfterEach
+    void releaseDatabase() {
+        DatabaseTruncator.truncate(jdbcTemplate);
     }
 
     @Test
