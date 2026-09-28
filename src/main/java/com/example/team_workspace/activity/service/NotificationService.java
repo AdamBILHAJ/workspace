@@ -54,6 +54,16 @@ public class NotificationService {
         return NotificationResponse.from(notificationRepository.save(notification));
     }
 
+    /**
+     * Authoritative unread count for the caller. Used to stamp every WebSocket
+     * event so the client badge never has to be recomputed locally.
+     */
+    @Transactional(readOnly = true)
+    public long countUnread(User actor) {
+        User currentUser = membershipGuard.requireCurrentUser(actor);
+        return notificationRepository.countByRecipientIdAndIsReadFalse(currentUser.getId());
+    }
+
     @Transactional
     public int markAllAsRead(User actor) {
         User currentUser = membershipGuard.requireCurrentUser(actor);

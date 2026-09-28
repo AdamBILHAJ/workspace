@@ -42,6 +42,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/v1/auth/signup", "/api/v1/auth/signin").permitAll()
                         .requestMatchers("/api/v1/**").authenticated()
+                        // STOMP/SockJS handshake and its transport endpoints. These
+                        // are permitted at the transport layer only; the JWT is
+                        // validated on the STOMP CONNECT frame by
+                        // StompJwtChannelInterceptor, so no socket reaches a
+                        // handler unauthenticated.
+                        .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers("/api/health", "/error").permitAll()
                         .anyRequest().denyAll()
                 )
