@@ -1,12 +1,64 @@
 "use client";
 
 import { CheckCircle2, Clock3, FolderKanban, UsersRound } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { WorkspaceShellHeader } from "@/components/workspace/WorkspaceShellHeader";
+import { useWorkspace } from "@/context/WorkspaceContext";
 import { useAuth } from "@/context/AuthContext";
+import { listWorkspaceMembers } from "@/lib/workspaces";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { workspaces } = useWorkspace();
+  const [distinctMemberCount, setDistinctMemberCount] = useState<number | null>(
+    null,
+  );
+
+  // A user can belong to several workspaces, so the raw per-workspace totals
+  // would double-count anyone who appears in more than one. Counting distinct
+  // user ids answers "how many people do I work with" instead.
+  useEffect(() => {
+    if (workspaces.length === 0) {
+      // Nothing to fetch; the zero case is derived during render below.
+      return;
+    }
+
+    const controller = new AbortController();
+    let isActive = true;
+
+    async function countMembers(): Promise<void> {
+      try {
+        const rosters = await Promise.all(
+          workspaces.map((workspace) =>
+            listWorkspaceMembers(workspace.id, controller.signal),
+          ),
+        );
+
+        if (isActive) {
+          const unique = new Set<number>();
+          rosters.flat().forEach((member) => unique.add(member.user.id));
+          setDistinctMemberCount(unique.size);
+        }
+      } catch {
+        if (isActive && !controller.signal.aborted) {
+          setDistinctMemberCount(null);
+        }
+      }
+    }
+
+    void countMembers();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [workspaces]);
+
+  // null means "not known yet, or the load failed" and renders as an em dash
+  // rather than a misleading 0.
+  const memberTotal =
+    workspaces.length === 0 ? 0 : distinctMemberCount;
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
@@ -28,7 +80,11 @@ export default function DashboardPage() {
         <section className="grid gap-4 sm:grid-cols-3" aria-label="Workspace summary">
           {[
             { label: "Active projects", value: "8", icon: FolderKanban },
-            { label: "Team members", value: "24", icon: UsersRound },
+            {
+              label: "Team members",
+              value: memberTotal === null ? "—" : String(memberTotal),
+              icon: UsersRound,
+            },
             { label: "Tasks completed", value: "96%", icon: CheckCircle2 },
           ].map(({ label, value, icon: Icon }) => (
             <article
