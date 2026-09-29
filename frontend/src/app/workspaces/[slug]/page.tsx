@@ -3,11 +3,19 @@
 import { ArrowLeft, FolderKanban, LoaderCircle, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 import { ProjectList } from "@/components/projects/ProjectList";
+import { AddMemberModal } from "@/components/workspace/AddMemberModal";
+import { MembersRoster } from "@/components/workspace/MembersRoster";
 import { WorkspaceShellHeader } from "@/components/workspace/WorkspaceShellHeader";
 import { useWorkspace } from "@/context/WorkspaceContext";
-import type { WorkspaceRole } from "@/lib/workspaces";
+import { getApiErrorMessage } from "@/lib/auth";
+import {
+  listWorkspaceMembers,
+  type WorkspaceMember,
+  type WorkspaceRole,
+} from "@/lib/workspaces";
 
 const ROLE_STYLES: Record<WorkspaceRole, string> = {
   OWNER: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300",
@@ -20,6 +28,70 @@ export default function WorkspacePage() {
   const slug = Array.isArray(params?.slug) ? params.slug[0] : params?.slug;
   const { workspaces, isLoading, error, refresh } = useWorkspace();
   const workspace = workspaces.find((candidate) => candidate.slug === slug);
+  const canManage =
+    workspace?.role === "OWNER" || workspace?.role === "ADMIN";
+  const workspaceId = workspace?.id ?? null;
+
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [isMembersLoading, setIsMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    if (workspaceId === null) {
+      return;
+    }
+
+    // Captured into a const because the hoisted fetchMembers() below is a
+    // function declaration, which does not inherit the narrowing above.
+    const targetWorkspaceId = workspaceId;
+    const controller = new AbortController();
+    let isActive = true;
+
+    async function fetchMembers(): Promise<void> {
+      setIsMembersLoading(true);
+      setMembersError(null);
+
+      try {
+        const loaded = await listWorkspaceMembers(
+          targetWorkspaceId,
+          controller.signal,
+        );
+
+        if (isActive) {
+          setMembers(loaded);
+        }
+      } catch (caughtError) {
+        if (isActive && !controller.signal.aborted) {
+          setMembersError(
+            getApiErrorMessage(caughtError, "Unable to load members."),
+          );
+        }
+      } finally {
+        if (isActive) {
+          setIsMembersLoading(false);
+        }
+      }
+    }
+
+    void fetchMembers();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [reloadToken, workspaceId]);
+
+  // Append in place so the new row appears immediately, without refetching the
+  // whole roster. The server returns the persisted member, role included.
+  const handleMemberAdded = useCallback((member: WorkspaceMember) => {
+    setMembers((current) =>
+      current.some((existing) => existing.id === member.id)
+        ? current
+        : [...current, member],
+    );
+  }, []);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
@@ -129,15 +201,45 @@ export default function WorkspacePage() {
             </section>
 
             <ProjectList
-              canManage={
-                workspace.role === "OWNER" || workspace.role === "ADMIN"
-              }
+              canManage={canManage}
               workspaceId={workspace.id}
               workspaceSlug={workspace.slug}
+            />
+
+            {membersError ? (
+              <div
+                className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+                role="alert"
+              >
+                <span>{membersError}</span>
+                <button
+                  className="font-semibold underline underline-offset-2"
+                  onClick={() => setReloadToken((token) => token + 1)}
+                  type="button"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : null}
+
+            <MembersRoster
+              canManage={canManage}
+              isLoading={isMembersLoading}
+              members={members}
+              onOpenAddModal={() => setIsAddModalOpen(true)}
             />
           </>
         )}
       </div>
+
+      {isAddModalOpen && workspace ? (
+        <AddMemberModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onMemberAdded={handleMemberAdded}
+          workspaceId={workspace.id}
+        />
+      ) : null}
     </main>
   );
 }

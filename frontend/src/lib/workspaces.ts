@@ -2,6 +2,13 @@ import api from "@/lib/api";
 
 export type WorkspaceRole = "OWNER" | "ADMIN" | "MEMBER";
 
+/**
+ * Global account role (user/domain/Role.java), distinct from the per-workspace
+ * WorkspaceRole above. A MEMBER of a workspace is usually a ROLE_USER; the two
+ * axes are unrelated and must not be conflated.
+ */
+export type GlobalRole = "ROLE_USER" | "ROLE_ADMIN";
+
 export interface Organization {
   id: number;
   name: string;
@@ -30,7 +37,12 @@ export interface WorkspaceMember {
     email: string;
     firstName: string;
     lastName: string;
+    role: GlobalRole;
   };
+}
+
+export interface AddMemberRequest {
+  email: string;
 }
 
 export async function listWorkspaceMembers(
@@ -40,6 +52,23 @@ export async function listWorkspaceMembers(
   const response = await api.get<WorkspaceMember[]>(
     `/api/v1/workspaces/${workspaceId}/members`,
     { signal },
+  );
+  return response.data;
+}
+
+/**
+ * Adds an existing user to a workspace. The server always assigns the MEMBER
+ * role and normalises the email itself, so no role is sent. Requires OWNER or
+ * ADMIN (403), the user to already be registered (404), and to not already be
+ * a member (409).
+ */
+export async function addWorkspaceMember(
+  workspaceId: number,
+  payload: AddMemberRequest,
+): Promise<WorkspaceMember> {
+  const response = await api.post<WorkspaceMember>(
+    `/api/v1/workspaces/${workspaceId}/members`,
+    { email: payload.email.trim().toLowerCase() },
   );
   return response.data;
 }
