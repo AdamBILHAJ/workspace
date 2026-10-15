@@ -51,6 +51,12 @@ import org.springframework.boot.test.context.SpringBootTest;
                 "spring.datasource.driver-class-name=org.h2.Driver",
                 "spring.datasource.username=sa",
                 "spring.datasource.password=",
+                // The main config pins PostgreSQLDialect so production startup does
+                // not depend on a live connection to detect it. H2 must not inherit
+                // that: PostgreSQLDialect emits Postgres-flavoured DDL and identity
+                // handling, which H2 either rejects or silently maps to the wrong
+                // type. It has to be reset here or schema generation drifts.
+                "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
                 // A small pool: the suite is strictly sequential, so extra
                 // connections only reserve memory.
                 "spring.datasource.hikari.maximum-pool-size=5",

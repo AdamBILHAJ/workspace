@@ -7,20 +7,20 @@ import { WorkspaceShellHeader } from "@/components/workspace/WorkspaceShellHeade
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { useAuth } from "@/context/AuthContext";
 import { listWorkspaceMembers } from "@/lib/workspaces";
+import { listProjects, Project } from "@/lib/projects";
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const { workspaces } = useWorkspace();
-  const [distinctMemberCount, setDistinctMemberCount] = useState<number | null>(
-    null,
-  );
+  
+  const [distinctMemberCount, setDistinctMemberCount] = useState<number | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  // A user can belong to several workspaces, so the raw per-workspace totals
-  // would double-count anyone who appears in more than one. Counting distinct
-  // user ids answers "how many people do I work with" instead.
+  // 1. Fetch team members across all workspaces (deduplicated)
   useEffect(() => {
     if (workspaces.length === 0) {
-      // Nothing to fetch; the zero case is derived during render below.
+      setDistinctMemberCount(0);
       return;
     }
 
@@ -55,10 +55,58 @@ export default function DashboardPage() {
     };
   }, [workspaces]);
 
-  // null means "not known yet, or the load failed" and renders as an em dash
-  // rather than a misleading 0.
-  const memberTotal =
-    workspaces.length === 0 ? 0 : distinctMemberCount;
+  // 2. Fetch projects for all available workspaces using listProjects
+  useEffect(() => {
+    const controller = new AbortController();
+    let isActive = true;
+
+    async function fetchProjects() {
+      if (workspaces.length === 0) {
+        setProjects([]);
+        setIsLoadingData(false);
+        return;
+      }
+
+      setIsLoadingData(true);
+      try {
+        const projectResponses = await Promise.all(
+          workspaces.map((workspace) => listProjects(workspace.id, controller.signal))
+        );
+
+        if (isActive) {
+          setProjects(projectResponses.flat());
+        }
+      } catch (err) {
+        if (isActive && !controller.signal.aborted) {
+          console.error("Failed to load projects", err);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingData(false);
+        }
+      }
+    }
+
+    void fetchProjects();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [workspaces]);
+
+  // Calculations
+  const memberTotal = workspaces.length === 0 ? 0 : distinctMemberCount;
+  
+  // Active projects count
+  const activeProjectsCount = projects.length;
+
+  // Calculate overall task completion percentage based on totalTasks vs completedTasks across projects
+  const totalTasksSum = projects.reduce((acc, p) => acc + (p.totalTasks || 0), 0);
+  const completedTasksSum = projects.reduce((acc, p) => acc + (p.completedTasks || 0), 0);
+  const completionRate = totalTasksSum > 0 
+    ? Math.round((completedTasksSum / totalTasksSum) * 100) 
+    : 0;
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
@@ -79,13 +127,21 @@ export default function DashboardPage() {
 
         <section className="grid gap-4 sm:grid-cols-3" aria-label="Workspace summary">
           {[
-            { label: "Active projects", value: "8", icon: FolderKanban },
+            { 
+              label: "Active projects", 
+              value: isLoadingData ? "—" : String(activeProjectsCount), 
+              icon: FolderKanban 
+            },
             {
               label: "Team members",
               value: memberTotal === null ? "—" : String(memberTotal),
               icon: UsersRound,
             },
-            { label: "Tasks completed", value: "96%", icon: CheckCircle2 },
+            { 
+              label: "Tasks completed", 
+              value: isLoadingData ? "—" : `${completionRate}%`, 
+              icon: CheckCircle2 
+            },
           ].map(({ label, value, icon: Icon }) => (
             <article
               className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
@@ -104,27 +160,32 @@ export default function DashboardPage() {
           <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-semibold">Recent activity</h2>
+                <h2 className="font-semibold">Recent projects</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Latest changes across your workspace
+                  Latest projects across your workspaces
                 </p>
               </div>
               <Clock3 className="size-5 text-slate-400" aria-hidden="true" />
             </div>
+            
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              {["Project roadmap", "Design review", "Sprint planning"].map(
-                (item, index) => (
+              {isLoadingData ? (
+                <p className="text-sm text-slate-500 col-span-3">Loading projects...</p>
+              ) : projects.length === 0 ? (
+                <p className="text-sm text-slate-500 col-span-3">No projects found.</p>
+              ) : (
+                projects.slice(0, 3).map((project) => (
                   <div
                     className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800/70"
-                    key={item}
+                    key={project.id}
                   >
                     <div className="mb-6 h-2 w-12 rounded-full bg-indigo-200 dark:bg-indigo-900" />
-                    <p className="text-sm font-medium">{item}</p>
+                    <p className="text-sm font-medium truncate">{project.name}</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      Updated {index + 1}h ago
+                      {project.completionPercent}% completed
                     </p>
                   </div>
-                ),
+                ))
               )}
             </div>
           </div>
