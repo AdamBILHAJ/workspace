@@ -37,3 +37,6 @@ Thumbs.db
 # Node (the frontend keeps its own, more complete .gitignore)
 node_modules/
 *.tsbuildinfo
+
+# Kubernetes secrets (generated locally, never commit)
+k8s/secrets.yaml
