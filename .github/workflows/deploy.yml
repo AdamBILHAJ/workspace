@@ -1,0 +1,93 @@
+name: Build and Push Container Images
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: container-image-builds
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository_owner }}/team-workspace-backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository_owner }}/team-workspace-frontend
+
+jobs:
+  build-and-push:
+    name: Build and push backend and frontend images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Spring Boot backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Next.js frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.NEXT_PUBLIC_API_BASE_URL || 'https://app.example.com' }}
+            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL || 'https://app.example.com/ws' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+# Optional K3s rollout:
+# Add one of these rollout strategies after the images are pushed.
+#
+# 1. SSH into the K3s node and restart both deployments:
+#    - name: Roll out on K3s over SSH
+#      uses: appleboy/ssh-action@v1
+#      with:
+#        host: ${{ secrets.K3S_HOST }}
+#        username: ${{ secrets.K3S_USER }}
+#        key: ${{ secrets.K3S_SSH_KEY }}
+#        script: |
+#          kubectl rollout restart deployment/team-workspace-backend
+#          kubectl rollout restart deployment/team-workspace-frontend
+#
+# 2. Or use a kubeconfig secret with kubectl:
+#    - name: Roll out on K3s
+#      run: |
+#        echo "${{ secrets.KUBECONFIG }}" > /tmp/kubeconfig
+#        export KUBECONFIG=/tmp/kubeconfig
+#        kubectl rollout restart deployment/team-workspace-backend
+#        kubectl rollout restart deployment/team-workspace-frontend
