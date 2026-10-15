@@ -4,6 +4,7 @@ import com.example.team_workspace.activity.domain.Notification;
 import com.example.team_workspace.activity.dto.NotificationResponse;
 import com.example.team_workspace.activity.event.CommentAddedEvent;
 import com.example.team_workspace.activity.event.TaskCreatedEvent;
+import com.example.team_workspace.activity.event.TaskMovedEvent;
 import com.example.team_workspace.activity.repository.NotificationRepository;
 import com.example.team_workspace.activity.socket.NotificationSocketEvent;
 import com.example.team_workspace.user.domain.User;
@@ -63,6 +64,21 @@ public class NotificationListener {
                 event.authorId(),
                 "New comment on your task",
                 event.authorName() + " commented on " + event.taskTitle() + ".",
+                event.workspaceSlug(),
+                event.projectKey(),
+                event.taskId()
+        );
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onTaskMoved(TaskMovedEvent event) {
+        notifyAssignee(
+                event.assigneeId(),
+                event.actorId(),
+                "Task moved",
+                event.taskTitle() + " was moved from " + event.fromColumnName()
+                        + " to " + event.toColumnName() + ".",
                 event.workspaceSlug(),
                 event.projectKey(),
                 event.taskId()
