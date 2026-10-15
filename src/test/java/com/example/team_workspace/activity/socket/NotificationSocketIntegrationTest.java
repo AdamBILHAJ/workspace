@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -71,6 +72,7 @@ class NotificationSocketIntegrationTest {
     private String ownerToken;
     private String mateToken;
     private long mateId;
+    private long projectId;
     private long columnId;
 
     @BeforeEach
@@ -124,6 +126,25 @@ class NotificationSocketIntegrationTest {
         JsonNode event = awaitEvent(inbox);
         assertThat(event.path("type").asText()).isEqualTo("NEW_NOTIFICATION");
         assertThat(event.path("payload").path("title").asText()).isEqualTo("New comment on your task");
+    }
+
+    @Test
+    void movingATaskPushesToTheAssigneeInRealTime() throws Exception {
+        long taskId = createTask("Needs review", mateId);
+        long moveColumnId = secondColumnId();
+        BlockingQueue<String> inbox = subscribe(mateToken);
+
+        mockMvc.perform(patch("/api/v1/tasks/{taskId}/move", taskId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(ownerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("columnId", moveColumnId, "orderIndex", 0))))
+                .andExpect(status().isOk());
+
+        JsonNode event = awaitEvent(inbox);
+        assertThat(event.path("type").asText()).isEqualTo("NEW_NOTIFICATION");
+        assertThat(event.path("payload").path("title").asText()).isEqualTo("Task moved");
+        assertThat(event.path("payload").path("message").asText())
+                .isEqualTo("Needs review was moved from To Do to In Progress.");
     }
 
     @Test
@@ -270,6 +291,14 @@ class NotificationSocketIntegrationTest {
         return objectMapper.readTree(payload);
     }
 
+    private long secondColumnId() throws Exception {
+        String board = mockMvc.perform(get("/api/v1/projects/{projectId}/board", projectId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(ownerToken)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(board).path("columns").get(1).path("id").asLong();
+    }
+
     private long unreadRowsForMate() {
         Long count = jdbcTemplate.queryForObject(
                 "select count(*) from notifications where recipient_id = ? and is_read = false",
@@ -307,7 +336,7 @@ class NotificationSocketIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString()).path("id").asLong();
 
-        long projectId = objectMapper.readTree(mockMvc.perform(
+        projectId = objectMapper.readTree(mockMvc.perform(
                         post("/api/v1/workspaces/{workspaceId}/projects", workspaceId)
                                 .header(HttpHeaders.AUTHORIZATION, bearer(ownerToken))
                                 .contentType(MediaType.APPLICATION_JSON)
