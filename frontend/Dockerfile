@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ---- Dependencies stage --------------------------------------------------
-FROM node:22-alpine AS deps
+FROM docker.io/library/node:22-alpine AS deps
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 # ---- Builder stage -------------------------------------------------------
-FROM node:22-alpine AS builder
+FROM docker.io/library/node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 RUN npm run build
 
 # ---- Runner stage --------------------------------------------------------
-FROM node:22-alpine AS runner
+FROM docker.io/library/node:22-alpine AS runner
 
 WORKDIR /app
 
