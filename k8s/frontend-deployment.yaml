@@ -31,7 +31,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: frontend
-          image: ghcr.io/adambilhaj/team-workspace-frontend:latest
+          image: localhost/team-workspace-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

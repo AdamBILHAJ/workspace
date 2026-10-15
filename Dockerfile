@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ---- Build stage ---------------------------------------------------------
-FROM maven:3.9.9-eclipse-temurin-17-alpine AS build
+FROM docker.io/library/maven:3.9.9-eclipse-temurin-17-alpine AS build
 
 WORKDIR /workspace
 
@@ -14,7 +14,7 @@ COPY src ./src
 RUN ./mvnw -B -q clean package -DskipTests
 
 # ---- Runtime stage -------------------------------------------------------
-FROM eclipse-temurin:17-jre-alpine AS runtime
+FROM docker.io/library/eclipse-temurin:17-jre-alpine AS runtime
 
 # Keep only the runtime JRE; no compiler, Maven, or source code remains here.
 WORKDIR /app
